@@ -2,7 +2,7 @@
 
 
 [Colab-Badge]: https://colab.research.google.com/assets/colab-badge.svg
-[Colab-Url]: https://colab.research.google.com/drive/1gdmtz4r5WuluAC3S8SC9zC0Lm-tiiGtj?authuser=1#scrollTo=9ASWWym3g0Yq
+[Colab-Url]: https://colab.research.google.com/drive/1gdmtz4r5WuluAC3S8SC9zC0Lm-tiiGtj
 
 ## Code for B9AI108 (B9AI108_2223_TMD1S) CA 2
 
