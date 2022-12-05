@@ -33,4 +33,4 @@ Github Url: https://github.com/kanchika-kapoor/data_preprocessing
 
 ### Output:
 
-![code implementation on vm](screenshot.png "repo implemented on machine")
+![code implementation on vm](Screenshot.png "repo implemented on machine")
