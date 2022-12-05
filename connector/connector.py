@@ -7,11 +7,14 @@ class DBConnector():
         connect to database using credential params
         returns connection
         """
-        connection = pypyodbc.connect('Driver={ODBC Driver 17 for SQL Server};'
-            'Server='+host+','+port+';'
-            'Database='+database+';'
-            'encrypt=yes;'
-            'TrustServerCertificate=yes;'
-            'UID='+username+';'
-            'PWD='+password+';',autocommit = True)
-        return connection
+        try:
+            connection = pypyodbc.connect('Driver={ODBC Driver 17 for SQL Server};'
+                'Server='+host+','+port+';'
+                'Database='+database+';'
+                'encrypt=yes;'
+                'TrustServerCertificate=yes;'
+                'UID='+username+';'
+                'PWD='+password+';',autocommit = True)
+            return connection
+        except Exception as e:
+            print(str(e))
