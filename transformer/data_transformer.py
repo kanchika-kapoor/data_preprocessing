@@ -51,5 +51,5 @@ class TransformData():
         convert query output to dataframe
         returns dataframe
         """
-        df = pd.read_sql(conn, query)
+        df = pd.read_sql(query, conn)
         return df

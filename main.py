@@ -118,8 +118,8 @@ if __name__ == '__main__':
             cursor.execute(cmd)
         print('all entries added to database')
 
-        query = """select security_name, json_value(extra, '$.fiscal_year'),
-        json_value(extra, '$.fiscal_quarter')
+        query = """select security_name, json_value(extra, '$.fiscal_year') as fiscal_year,
+        json_value(extra, '$.fiscal_quarter') as quarter
         from events_table
         where ISJSON(extra) > 0
         and json_value(extra, '$.fiscal_quarter') = 'Q3'

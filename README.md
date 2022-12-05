@@ -30,3 +30,7 @@ Github Url: https://github.com/kanchika-kapoor/data_preprocessing
     * Pandas library used for creating the dataframe from the url's json response
 * ### Data Storage:
     * Pypyodbc is used to connect to database on hosted azure virtual machine
+
+### Output:
+
+![code implementation on vm](screenshot.png "repo implemented on machine")
