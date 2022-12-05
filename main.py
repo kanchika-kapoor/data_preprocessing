@@ -30,6 +30,7 @@ if __name__ == '__main__':
     producer = ScrapData(header)
 
     url = base_url+producer.dict_to_query_params(params)
+    print('fetching data from source')
 
     data = producer.get_json_response(url)
     total_pages = data['paginationInfo']['num_pages']
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     # transform data
     transformer = TransformData(json_data)
     df = transformer.json_to_dataframe()
-    print('fetched json to dataframe:')
+    print('converted json to dataframe:')
     print(df)
     df = transformer.drop_cols(['event_date_fmtd', 'event_date_js', 'event_datetime_utc_js','event_time_fmtd','description'], df)
     # not all day ranges have currency code data
