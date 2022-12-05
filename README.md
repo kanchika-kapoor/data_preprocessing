@@ -15,6 +15,10 @@ Github Url: https://github.com/kanchika-kapoor/data_preprocessing
 ### Documentation and code implementation link: 
 ## [Colab Notebook Link](https://colab.research.google.com/drive/1gdmtz4r5WuluAC3S8SC9zC0Lm-tiiGtj?usp=sharing)
 
+>*Note:*
+>
+>*This repository contains the same methods used in colab but in a structured format*
+
 ## Data Source:
 * The data is scrapped from [YCharts](https://ycharts.com/events/calendar/#/?date=2022-11-29&pageNum=1&eventGroups=earnings,dividends,splits_spinoffs,other&securitylistName=all_stocks&securityGroup=company&viewMode=week)
 * The site uses one url which returns data based on various filters and the data is paginated
