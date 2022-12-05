@@ -1,90 +1,18 @@
-import requests
-from io import StringIO
-import pandas as pd
+from producer.scraper import ScrapData
+from transformer.data_transformer import TransformData
+from connector.connector import DBConnector
 import json
-import pypyodbc
-from urllib.parse import urlencode
-
-
-def dict_to_query_params(query_params):
-  """
-  method for dictionary to query param convertion
-  returns url encoded string
-  """
-  return urlencode(query_params)
-
-def get_json_response(url, headers):
-  """
-  calls the url with given headers using get
-  returns json response
-  """
-  try:
-    resp = requests.get(url, headers=headers)
-    data = resp.json()
-    return data
-  except Exception as e:
-    print('error: '+str(e))
-
-def clean_fetched_data(json_data):
-    """
-    clean the data received from api
-    returns dataframe
-    """
-    json_str = json.dumps(json_data) #convert dictionary to string
-    json_buf = StringIO(json_str) # make string buffer
-
-    df = pd.read_json(json_buf)
-    df = df.drop(['event_date_fmtd', 'event_date_js', 'event_datetime_utc_js'], axis=1)
-    df = df.drop(['event_time_fmtd'], axis=1)
-    df.currency_code = df.currency_code.fillna('Unknown')
-    df = df.drop(['description'], axis=1)
-    return df
-
-def get_paginated_data_arr(base_url,headers,params,data_key_name,total_pages_num,curr_page_num_key):
-  """
-  loops till total_pages_num and fetches data for every page
-  returns a list containing all data
-  """
-  try:
-    total_arr = []
-    for i in range(1, total_pages_num+1):
-      url = base_url + dict_to_query_params(params)
-      data = get_json_response(url, headers)[data_key_name]
-      total_arr += data 
-      params[curr_page_num_key]+=1
-    return total_arr
-  except Exception as e:
-    print('error: '+str(e))
-
-def get_db_connection(host, port, username, password, database):
-  connection = pypyodbc.connect('Driver={ODBC Driver 17 for SQL Server};'
-    'Server='+host+','+port+';'
-    'Database='+database+';'
-    'encrypt=yes;'
-    'TrustServerCertificate=yes;'
-    'UID='+username+';'
-    'PWD='+password+';',autocommit = True)
-  return connection
-
-def get_chunked_dataframe(max_row_count, dataframe):
-  """
-  split dataframe into n parts based on max_row_count
-  returns list of dataframes
-  """
-  arr=[]
-  chunk_size = round(len(dataframe)/max_row_count)
-  for i in range(chunk_size):
-    arr.append(dataframe[i*max_row_count:max_row_count*(i+1)])
-  return arr
-
 
 if __name__ == '__main__':
-    header = {'Accept': 'application/json',
+    # extract data
+    header = {
+          'Accept': 'application/json',
           'Content':'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:107.0) Gecko/20100101 Firefox/107.0'
     }
+    # start and end date can be configured to any range
     start_date = '11/20/2022'
-    end_date = '12/01/2022'
+    end_date = '11/25/2022'
     page_num = 1
 
     params = {
@@ -97,22 +25,59 @@ if __name__ == '__main__':
         'sort':'asc'
     }
 
-    base_url = 'https://ycharts.com/events/events_data/json'
+    base_url = 'https://ycharts.com/events/events_data/json?'
 
-    url = base_url+'?'+dict_to_query_params(params)
-    data = get_json_response(url, header)
+    producer = ScrapData(header)
+
+    url = base_url+producer.dict_to_query_params(params)
+
+    data = producer.get_json_response(url)
     total_pages = data['paginationInfo']['num_pages']
-    json_data = get_paginated_data_arr(base_url+'?', header, params, 'events', total_pages, 'pageNum')
-    df = clean_fetched_data(json_data)
-    conn = get_db_connection('someval','1433','same_val','somePass','master')
+    json_data = producer.get_paginated_data_arr(base_url, params, 'events', total_pages, 'pageNum')
+
+
+    # transform data
+    transformer = TransformData(json_data)
+    df = transformer.json_to_dataframe()
+    print('fetched json to dataframe:')
+    print(df)
+    df = transformer.drop_cols(['event_date_fmtd', 'event_date_js', 'event_datetime_utc_js','event_time_fmtd','description'], df)
+    # not all day ranges have currency code data
+    if 'currency_code' in df.columns:
+      df.currency_code = df.currency_code.fillna('Unknown')
+    else:
+      df['currency_code']='Unknown'
+    # transform object columns to str
+    df.is_estimate = transformer.change_col_type(df.is_estimate, str)
+    df.is_today_or_later = transformer.change_col_type(df.is_today_or_later,str)
+    df.extra = df.extra.apply(lambda x: json.dumps(x))
+    # remove single quotes from security_name column
+    df.security_name = df.security_name.apply(lambda x: x.replace("'",""))
+    chunked_df = transformer.get_chunked_dataframe(1000, df)
+
+
+    # load data
+    host = '20.101.66.12'
+    port='1443'
+    user = 'sa'
+    password = 'admin@1234'
+    db = 'master'
+
+    connector = DBConnector()
+    conn = connector.get_db_connection(host,port,user,password,db)
+
     try:
+        # create new db
         cursor = conn.cursor()
         SQLCommand = ("CREATE DATABASE Events;")
         cursor.execute(SQLCommand)
-        print('New database created')
-        conn = get_db_connection('someval','1433','same_val','somePass','Events')
+        print('Events database created')
+        conn.close()
+
+        conn = connector.get_db_connection(host,port,user,password,'Events')
 
         cursor = conn.cursor()
+        # schema
         cmd = """create table events_table ( 
             event_date                Date,
             event_subgroup            varchar(255),
@@ -128,24 +93,14 @@ if __name__ == '__main__':
 
         cursor.execute(cmd)
         print('created table events_table')
+        # constraint
         cmd="""
         alter table events_table
             add constraint [extra record should be formatted as JSON]
                         check (ISJSON(extra)=1)
         """
         cursor.execute(cmd)
-        # transform object columns to str
-        df.is_estimate = df.is_estimate.astype(str)
-        df.is_today_or_later = df.is_today_or_later.astype(str)
 
-        # stringify json
-        df.extra = df.extra.apply(lambda x: json.dumps(x))
-
-        # remove single quotes from security_name column
-        df.security_name = df.security_name.apply(lambda x: x.replace("'",""))
-
-
-        chunked_df = get_chunked_dataframe(1000, df)
 
         # loop over list of dataframes. for eg: if 2000 rows are present 
         # in dataframe and max limit is 1000, it will loop twice
@@ -162,16 +117,21 @@ if __name__ == '__main__':
             cursor.execute(cmd)
         print('all entries added to database')
 
-
-        cursor.execute("""select security_name, json_value(extra, '$.fiscal_year'),
+        query = """select security_name, json_value(extra, '$.fiscal_year'),
         json_value(extra, '$.fiscal_quarter')
         from events_table
         where ISJSON(extra) > 0
         and json_value(extra, '$.fiscal_quarter') = 'Q3'
         and  event_subgroup='earnings_results'
-        order by event_date""")
+        order by event_date"""
+
+        cursor.execute(query)
 
         data = cursor.fetchall()
         print(data)
+
+        df_query = transformer.sql_to_df(conn, query)
+        print(df_query)
     except Exception as e:
         print('Error: '+str(e))
+        pass
